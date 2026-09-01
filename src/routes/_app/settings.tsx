@@ -5,7 +5,10 @@ import { toast } from "sonner";
 import { ApiKeySettings } from "@/client/features/settings/ApiKeySettings";
 import { type ThemePreference, useThemePreference } from "@/client/lib/theme";
 import { authClient, useSession } from "@/lib/auth-client";
-import { isHostedClientAuthMode } from "@/lib/auth-mode";
+import {
+  isHostedClientAuthMode,
+  isSessionClientAuthMode,
+} from "@/lib/auth-mode";
 import { version } from "../../../package.json";
 
 export const Route = createFileRoute("/_app/settings")({
@@ -24,6 +27,7 @@ const THEME_OPTIONS: {
 
 function SettingsPage() {
   const isHosted = isHostedClientAuthMode();
+  const isSessionMode = isSessionClientAuthMode();
   const { themePreference, setThemePreference } = useThemePreference();
   const { data: session, isPending: isSessionPending } = useSession();
   const [isSaving, setIsSaving] = useState(false);
@@ -90,33 +94,37 @@ function SettingsPage() {
           </div>
         </section>
 
-        {isHosted ? (
+        {isSessionMode ? (
           <>
             <ApiKeySettings />
 
-            <section className="space-y-3">
-              <h2 className="text-sm font-medium text-base-content/50">
-                Analytics
-              </h2>
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <p className="text-sm">Help improve OpenSEO</p>
-                  <p className="mt-1 text-sm text-base-content/60">
-                    Share analytics and usage data.
-                  </p>
+            {isHosted ? (
+              <section className="space-y-3">
+                <h2 className="text-sm font-medium text-base-content/50">
+                  Analytics
+                </h2>
+                <div className="flex items-start justify-between gap-6">
+                  <div>
+                    <p className="text-sm">Help improve OpenSEO</p>
+                    <p className="mt-1 text-sm text-base-content/60">
+                      Share analytics and usage data.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary"
+                    checked={analyticsEnabled}
+                    disabled={isSessionPending || isSaving || !session?.user}
+                    onChange={(event) => {
+                      void updateAnalyticsPreference(
+                        event.currentTarget.checked,
+                      );
+                    }}
+                    aria-label="Enable product analytics"
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={analyticsEnabled}
-                  disabled={isSessionPending || isSaving || !session?.user}
-                  onChange={(event) => {
-                    void updateAnalyticsPreference(event.currentTarget.checked);
-                  }}
-                  aria-label="Enable product analytics"
-                />
-              </div>
-            </section>
+              </section>
+            ) : null}
           </>
         ) : (
           <section className="space-y-3">

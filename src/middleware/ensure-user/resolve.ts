@@ -1,8 +1,13 @@
 import { env } from "cloudflare:workers";
-import { getAuthMode, isHostedAuthMode } from "@/lib/auth-mode";
+import {
+  getAuthMode,
+  isHostedAuthMode,
+  isUsableAuthMode,
+} from "@/lib/auth-mode";
 import { resolveCloudflareAccessContext } from "./cloudflareAccess";
 import { resolveLocalNoAuthContext } from "./delegated";
 import { resolveHostedContext } from "./hosted";
+import { resolveUsableContext } from "./usable";
 import type { EnsuredUserContext } from "./types";
 
 // Resolves the authenticated user for a request's headers across every auth
@@ -17,6 +22,9 @@ export async function resolveUserContextFromHeaders(
   }
   if (isHostedAuthMode(authMode)) {
     return resolveHostedContext(headers);
+  }
+  if (isUsableAuthMode(authMode)) {
+    return resolveUsableContext(headers);
   }
   return resolveCloudflareAccessContext(headers);
 }

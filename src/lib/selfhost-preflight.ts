@@ -78,6 +78,31 @@ function checkAuthMode(env: EnvRecord, items: PreflightItem[]): void {
     return;
   }
 
+  if (mode === "usable") {
+    const missing = [
+      "BETTER_AUTH_URL",
+      "BETTER_AUTH_SECRET",
+      "USABLE_OIDC_CLIENT_ID",
+      "USABLE_OIDC_CLIENT_SECRET",
+    ].filter((name) => !get(env, name));
+    items.push(
+      missing.length
+        ? {
+            key: "auth",
+            name: "AUTH_MODE",
+            level: "fail",
+            message: `usable mode requires ${missing.join(", ")}.`,
+          }
+        : {
+            key: "auth",
+            name: "AUTH_MODE",
+            level: "ok",
+            message: "usable (Usable OIDC)",
+          },
+    );
+    return;
+  }
+
   // cloudflare_access (explicit or defaulted)
   const teamDomain = get(env, "TEAM_DOMAIN");
   const policyAud = get(env, "POLICY_AUD");

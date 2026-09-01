@@ -25,7 +25,7 @@ describe("runSelfhostPreflight", () => {
 
     expect(result.failed).toBe(true);
     expect(itemFor(result, "AUTH_MODE")?.message).toContain(
-      "cloudflare_access, local_noauth, hosted",
+      "cloudflare_access, local_noauth, hosted, usable",
     );
   });
 
@@ -83,6 +83,32 @@ describe("runSelfhostPreflight", () => {
     expect(item?.message).toContain("BETTER_AUTH_URL");
     expect(item?.message).toContain("GOOGLE_CLIENT_ID");
     expect(item?.message).not.toContain("BETTER_AUTH_SECRET,");
+  });
+
+  it("fails usable mode listing every missing variable", () => {
+    const result = runSelfhostPreflight({
+      AUTH_MODE: "usable",
+      BETTER_AUTH_SECRET: "x".repeat(40),
+    });
+
+    expect(result.failed).toBe(true);
+    const item = itemFor(result, "AUTH_MODE");
+    expect(item?.message).toContain("BETTER_AUTH_URL");
+    expect(item?.message).toContain("USABLE_OIDC_CLIENT_ID");
+    expect(item?.message).not.toContain("BETTER_AUTH_SECRET,");
+  });
+
+  it("accepts usable mode with OIDC credentials", () => {
+    const result = runSelfhostPreflight({
+      AUTH_MODE: "usable",
+      BETTER_AUTH_URL: "https://seo.example.com",
+      BETTER_AUTH_SECRET: "x".repeat(40),
+      USABLE_OIDC_CLIENT_ID: "app-id",
+      USABLE_OIDC_CLIENT_SECRET: "app-secret",
+    });
+
+    expect(result.failed).toBe(false);
+    expect(itemFor(result, "AUTH_MODE")?.message).toContain("usable");
   });
 
   it("fails postgres mode without POSTGRES_DATABASE_URL", () => {

@@ -1,10 +1,28 @@
 import { env } from "cloudflare:workers";
 import { genericOAuth, organization } from "better-auth/plugins";
+import { isUsableAuthMode } from "@/lib/auth-mode";
 import { baseAuthOptions } from "@/lib/auth-options";
+import {
+  createUsableOAuthConfig,
+  readUsableOidcConfig,
+} from "@/lib/usable-oidc";
 import { GA4_OAUTH_PROVIDER_ID, GA4_OAUTH_SCOPES } from "@/shared/ga4";
 import { GSC_OAUTH_PROVIDER_ID, GSC_OAUTH_SCOPES } from "@/shared/gsc";
 
 export function createBaseAuthConfig() {
+  const usableOidc = isUsableAuthMode(env.AUTH_MODE)
+    ? readUsableOidcConfig({
+        USABLE_OIDC_ISSUER: env.USABLE_OIDC_ISSUER,
+        USABLE_OIDC_CLIENT_ID: env.USABLE_OIDC_CLIENT_ID,
+        USABLE_OIDC_CLIENT_SECRET: env.USABLE_OIDC_CLIENT_SECRET,
+        USABLE_OIDC_REQUIRED_GROUP: env.USABLE_OIDC_REQUIRED_GROUP,
+        USABLE_OIDC_SCOPES: env.USABLE_OIDC_SCOPES,
+      })
+    : null;
+  const usableOAuthConfig = usableOidc
+    ? createUsableOAuthConfig(usableOidc)
+    : null;
+
   return {
     ...baseAuthOptions,
     advanced: {
@@ -76,6 +94,7 @@ export function createBaseAuthConfig() {
             prompt: "select_account consent",
             pkce: true,
           },
+          ...(usableOAuthConfig ? [usableOAuthConfig] : []),
         ],
       }),
     ],

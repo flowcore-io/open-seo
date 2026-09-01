@@ -4,6 +4,7 @@ import { useSession } from "@/lib/auth-client";
 import {
   isEmailVerificationBypassed,
   isHostedClientAuthMode,
+  isSessionClientAuthMode,
 } from "@/lib/auth-mode";
 import {
   getCurrentAuthRedirectFromHref,
@@ -15,11 +16,14 @@ export function useHostedAuthRouteGuard() {
   const navigate = useNavigate();
   const { data: session, isPending } = useSession();
   const isHostedMode = isHostedClientAuthMode();
+  const isSessionMode = isSessionClientAuthMode();
   const emailVerified =
-    session?.user?.emailVerified === true || isEmailVerificationBypassed();
+    session?.user?.emailVerified === true ||
+    isEmailVerificationBypassed() ||
+    !isHostedMode;
 
   useEffect(() => {
-    if (isPending || !isHostedMode) {
+    if (isPending || !isSessionMode) {
       return;
     }
 
@@ -34,7 +38,7 @@ export function useHostedAuthRouteGuard() {
       return;
     }
 
-    if (!emailVerified) {
+    if (isHostedMode && !emailVerified) {
       void navigate({
         to: "/verify-email",
         search: getVerifyEmailSearch(session.user.email, redirectTo),
@@ -43,6 +47,7 @@ export function useHostedAuthRouteGuard() {
     }
   }, [
     isPending,
+    isSessionMode,
     isHostedMode,
     emailVerified,
     session?.user?.email,
@@ -50,11 +55,13 @@ export function useHostedAuthRouteGuard() {
     navigate,
   ]);
 
-  const hasVerifiedHostedSession =
-    !isPending && Boolean(session?.user?.id) && emailVerified;
+  const hasVerifiedSession =
+    !isPending &&
+    Boolean(session?.user?.id) &&
+    (!isHostedMode || emailVerified);
 
   return {
     isHostedMode,
-    canRenderAuthenticatedContent: !isHostedMode || hasVerifiedHostedSession,
+    canRenderAuthenticatedContent: !isSessionMode || hasVerifiedSession,
   };
 }

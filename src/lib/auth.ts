@@ -11,7 +11,12 @@ import { pgDb } from "@/db/pg/client";
 import * as pgSchema from "@/db/pg/schema";
 import { getDatabaseProvider } from "@/db/provider";
 import { z } from "zod";
-import { isHostedAuthMode } from "@/lib/auth-mode";
+import {
+  isHostedAuthMode,
+  isSessionAuthMode,
+  isUsableAuthMode,
+} from "@/lib/auth-mode";
+import { readUsableOidcConfig } from "@/lib/usable-oidc";
 import { createApiKeyPlugin } from "@/lib/auth-api-key";
 import { createBaseAuthConfig } from "@/lib/auth-config";
 import {
@@ -40,7 +45,7 @@ function createAuth() {
   // Hosted needs the real configured URL (cookies, callbacks, /api/auth routes
   // all use it). Self-hosted only builds this instance to mint/refresh Search
   // Console tokens, which never read baseURL — so a placeholder is fine there.
-  const baseUrl = isHostedAuthMode(env.AUTH_MODE)
+  const baseUrl = isSessionAuthMode(env.AUTH_MODE)
     ? getHostedBaseUrl()
     : "http://localhost";
   const bypassEmail = Reflect.get(env, "BYPASS_EMAIL_VERIFICATION") === "true";
@@ -68,36 +73,43 @@ function createAuth() {
     baseURL: baseUrl,
     secret: getHostedSecret(),
     ...baseAuthConfig,
-    emailAndPassword: {
-      ...baseAuthConfig.emailAndPassword,
-      requireEmailVerification: !bypassEmail,
-      resetPasswordTokenExpiresIn: 60 * 60,
-      revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }) => {
-        await sendHostedPasswordResetEmail({
-          email: user.email,
-          resetUrl: url,
-        });
-      },
-    },
-    emailVerification: bypassEmail
-      ? undefined
-      : {
-          sendOnSignUp: true,
-          autoSignInAfterVerification: true,
-          sendVerificationEmail: async ({ user, url }) => {
-            await sendHostedVerificationEmail({
+    emailAndPassword: isHostedAuthMode(env.AUTH_MODE)
+      ? {
+          ...baseAuthConfig.emailAndPassword,
+          requireEmailVerification: !bypassEmail,
+          resetPasswordTokenExpiresIn: 60 * 60,
+          revokeSessionsOnPasswordReset: true,
+          sendResetPassword: async ({ user, url }) => {
+            await sendHostedPasswordResetEmail({
               email: user.email,
-              confirmationUrl: url,
+              resetUrl: url,
             });
           },
+        }
+      : {
+          ...baseAuthConfig.emailAndPassword,
+          enabled: false,
+          disableSignUp: true,
         },
+    emailVerification:
+      isHostedAuthMode(env.AUTH_MODE) && !bypassEmail
+        ? {
+            sendOnSignUp: true,
+            autoSignInAfterVerification: true,
+            sendVerificationEmail: async ({ user, url }) => {
+              await sendHostedVerificationEmail({
+                email: user.email,
+                confirmationUrl: url,
+              });
+            },
+          }
+        : undefined,
     socialProviders: getSocialProviders(),
     trustedOrigins: getTrustedOrigins(baseUrl),
     database,
     plugins: [
       ...baseAuthConfig.plugins,
-      ...(isHostedAuthMode(env.AUTH_MODE) ? [createApiKeyPlugin()] : []),
+      ...(isSessionAuthMode(env.AUTH_MODE) ? [createApiKeyPlugin()] : []),
       ...(turnstileSecretKey
         ? [
             captcha({
@@ -134,8 +146,9 @@ function createAuth() {
       session: {
         create: {
           before: async (session) => {
-            // Inject Better Auth's createOrganization here so the helper can
-            // stay reusable without importing auth.ts and creating a cycle.
+            if (!isHostedAuthMode(env.AUTH_MODE)) {
+              return { data: session };
+            }
             const organizationId = await getOrCreateDefaultHostedOrganization(
               session.userId,
               (body) => auth.api.createOrganization({ body }),
@@ -267,6 +280,25 @@ function hasHostedAuthEmailConfig() {
     const value: unknown = Reflect.get(env, name);
     return typeof value === "string" && value.trim() !== "";
   });
+}
+
+export function hasUsableAuthConfig() {
+  try {
+    getHostedBaseUrl();
+    getHostedSecret();
+    return Boolean(
+      isUsableAuthMode(env.AUTH_MODE) &&
+      readUsableOidcConfig({
+        USABLE_OIDC_ISSUER: env.USABLE_OIDC_ISSUER,
+        USABLE_OIDC_CLIENT_ID: env.USABLE_OIDC_CLIENT_ID,
+        USABLE_OIDC_CLIENT_SECRET: env.USABLE_OIDC_CLIENT_SECRET,
+        USABLE_OIDC_REQUIRED_GROUP: env.USABLE_OIDC_REQUIRED_GROUP,
+        USABLE_OIDC_SCOPES: env.USABLE_OIDC_SCOPES,
+      }),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function hasHostedAuthConfig() {

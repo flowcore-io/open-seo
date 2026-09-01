@@ -10,6 +10,7 @@ import {
 import { getFieldError, getFormError } from "@/client/lib/forms";
 import { captureClientEvent } from "@/client/lib/posthog";
 import { authClient } from "@/lib/auth-client";
+import { USABLE_OAUTH_PROVIDER_ID } from "@/lib/usable-oidc";
 import { getSignInSearch, getVerifyEmailSearch } from "@/lib/auth-redirect";
 import { z } from "zod";
 
@@ -26,12 +27,12 @@ export const Route = createFileRoute("/_auth/sign-in")({
 function SignInPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { redirectTo, oauthQuery, isHostedMode } = useAuthPageState(
-    search.redirect,
-  );
+  const { redirectTo, oauthQuery, isHostedMode, isUsableMode } =
+    useAuthPageState(search.redirect);
   const authCallbackURL = redirectTo;
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [isStartingGoogle, setIsStartingGoogle] = useState(false);
+  const [isStartingUsable, setIsStartingUsable] = useState(false);
   const [socialError, setSocialError] = useState<string | null>(null);
 
   const form = useForm({
@@ -94,6 +95,28 @@ function SignInPage() {
     },
   });
 
+  async function handleContinueWithUsable() {
+    setSocialError(null);
+    setIsStartingUsable(true);
+
+    try {
+      const result = await authClient.signIn.oauth2({
+        providerId: USABLE_OAUTH_PROVIDER_ID,
+        callbackURL: authCallbackURL,
+      });
+
+      if (result.error) {
+        setSocialError(
+          result.error.message || "Usable sign in is not available right now.",
+        );
+        setIsStartingUsable(false);
+      }
+    } catch {
+      setSocialError("Usable sign in is not available right now.");
+      setIsStartingUsable(false);
+    }
+  }
+
   async function handleContinueWithGoogle() {
     setSocialError(null);
     setIsStartingGoogle(true);
@@ -117,6 +140,26 @@ function SignInPage() {
       setSocialError("Google sign in is not available right now.");
       setIsStartingGoogle(false);
     }
+  }
+
+  if (isUsableMode) {
+    return (
+      <AuthPageCard title="Sign in" helperText="Use your Usable account.">
+        <button
+          type="button"
+          className="btn w-full"
+          onClick={() => {
+            void handleContinueWithUsable();
+          }}
+          disabled={isStartingUsable}
+        >
+          {isStartingUsable ? "Opening Usable..." : "Sign in with Usable"}
+        </button>
+        {socialError ? (
+          <p className="text-sm text-error">{socialError}</p>
+        ) : null}
+      </AuthPageCard>
+    );
   }
 
   return (

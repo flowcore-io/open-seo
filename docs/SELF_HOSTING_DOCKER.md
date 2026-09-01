@@ -31,7 +31,10 @@ Optional env values:
 
 - `PORT` (defaults to `3001`)
 - `ALLOWED_HOST` (single reverse-proxy hostname to allow in Vite preview)
-- `AUTH_MODE=local_noauth` (already set in compose)
+- `AUTH_MODE` (defaults to `local_noauth`; set `usable` for Usable OIDC)
+- `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `USABLE_OIDC_CLIENT_ID`, `USABLE_OIDC_CLIENT_SECRET` (required when `AUTH_MODE=usable`)
+- `USABLE_OIDC_ISSUER` (defaults to `https://auth.flowcore.io/realms/memory-mesh`)
+- `USABLE_OIDC_REQUIRED_GROUP` (optional installed-app group)
 - `OPEN_SEO_IMAGE` (defaults to `ghcr.io/flowcore-io/open-seo:latest`)
 - `OPENROUTER_API_KEY` (required for AI features such as SAM; see [OpenRouter](https://openrouter.ai/settings/keys))
 - `DATABASE_PROVIDER=postgres` plus `POSTGRES_DATABASE_URL` to use an external Postgres instead of the SQLite volume

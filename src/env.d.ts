@@ -16,7 +16,12 @@ declare namespace Cloudflare {
     // edges, page mirror). Untyped here; getAuditScratchpad narrows the stub.
     AUDIT_SCRATCHPAD: DurableObjectNamespace;
 
-    AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted";
+    AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted" | "usable";
+    USABLE_OIDC_ISSUER?: string;
+    USABLE_OIDC_CLIENT_ID?: string;
+    USABLE_OIDC_CLIENT_SECRET?: string;
+    USABLE_OIDC_REQUIRED_GROUP?: string;
+    USABLE_OIDC_SCOPES?: string;
     BYPASS_EMAIL_VERIFICATION?: string;
     TEAM_DOMAIN?: string;
     POLICY_AUD?: string;
@@ -55,7 +60,7 @@ declare namespace Cloudflare {
 }
 
 interface ImportMetaEnv {
-  readonly AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted";
+  readonly AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted" | "usable";
   readonly DATABASE_PROVIDER?: "d1" | "postgres";
   readonly BYPASS_EMAIL_VERIFICATION?: string;
   readonly POSTHOG_PUBLIC_KEY?: string;
