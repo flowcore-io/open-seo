@@ -2,13 +2,13 @@ import { decodeJwt } from "jose";
 import { APIError } from "better-auth/api";
 
 export const USABLE_OAUTH_PROVIDER_ID = "usable";
-export const DEFAULT_USABLE_OIDC_ISSUER =
+const DEFAULT_USABLE_OIDC_ISSUER =
   "https://auth.flowcore.io/realms/memory-mesh";
 const DEFAULT_SCOPES = ["openid", "profile", "email", "offline_access"];
 
 type EnvRecord = Record<string, string | undefined>;
 
-export type UsableOidcConfig = {
+type UsableOidcConfig = {
   issuer: string;
   clientId: string;
   clientSecret: string;
