@@ -60,7 +60,11 @@ declare namespace Cloudflare {
 }
 
 interface ImportMetaEnv {
-  readonly AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted" | "usable";
+  readonly AUTH_MODE?:
+    | "cloudflare_access"
+    | "local_noauth"
+    | "hosted"
+    | "usable";
   readonly DATABASE_PROVIDER?: "d1" | "postgres";
   readonly BYPASS_EMAIL_VERIFICATION?: string;
   readonly POSTHOG_PUBLIC_KEY?: string;

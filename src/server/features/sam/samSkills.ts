@@ -2,19 +2,22 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import type { SkillSource } from "agents/skills";
 
-// Bundle the repo's public-facing skills (.agents/skills) into SAM at build
-// time. Skills marked `metadata.internal: true` are repo-dev tooling and stay
-// out. The glob names the dot-directory literally, so Vite matches it.
+// Bundle the product plugin's published skills into SAM at build time. Using
+// the plugin package as the boundary keeps repo tooling and locally installed
+// agent skills out of the in-app catalog.
 //
 // The source implements the `SkillSource` interface by hand (type-only import
 // above): the `agents/skills` runtime module drags in the skill-*script*
 // executor graph (@cloudflare/codemode, just-bash), which a static in-memory
 // manifest doesn't need.
-const skillFiles = import.meta.glob<string>("/.agents/skills/*/SKILL.md", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+const skillFiles = import.meta.glob<string>(
+  "/plugins/openseo/skills/*/SKILL.md",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+);
 
 // The skill bodies are written for external MCP clients (Claude Code); this
 // note reframes the surface so SAM skips the steps that don't apply in-app.
