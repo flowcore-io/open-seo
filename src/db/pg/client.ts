@@ -28,23 +28,6 @@ const pgClientStore = new AsyncLocalStorage<{
   db: ReturnType<typeof createPgDb>;
 }>();
 
-let directSql: Sql | undefined;
-let directDb: ReturnType<typeof createPgDb> | undefined;
-
-function getDirectPg() {
-  if (!directSql || !directDb) {
-    directSql = withQueryRetries(
-      postgres(getPostgresConnectionString(), {
-        max: 10,
-        fetch_types: false,
-        connect_timeout: 10,
-      }),
-    );
-    directDb = createPgDb(directSql);
-  }
-  return { sql: directSql, db: directDb };
-}
-
 export const pgDb = new Proxy(
   {},
   {
@@ -71,12 +54,15 @@ export const pgDb = new Proxy(
  * Wrap every entrypoint that touches the DB: the `fetch` handler, the
  * `scheduled` cron, and each WorkflowEntrypoint `run`.
  *
- * Per Hyperdrive's guidance we use a single connection (`max: 1` — Hyperdrive
- * pools the origin connections at the edge, so a client-side pool only adds
- * stale-connection risk) and do NOT call `sql.end()`: the Workers↔Hyperdrive
- * socket is torn down automatically when the invocation ends, and the pooled
- * origin connection stays warm for reuse. Not ending it also means a streamed
- * response can keep querying after the handler returns.
+ * Behind Hyperdrive we follow its guidance and use a single connection
+ * (`max: 1` — Hyperdrive pools the origin connections at the edge, so a
+ * client-side pool only adds stale-connection risk). On a direct connection
+ * there is no edge pool, so a small per-request pool is allowed instead.
+ *
+ * We do NOT call `sql.end()`: the socket is torn down automatically when the
+ * invocation ends, and behind Hyperdrive the pooled origin connection stays
+ * warm for reuse. Not ending it also means a streamed response can keep
+ * querying after the handler returns.
  */
 export async function withPgClient<T>(fn: () => Promise<T>): Promise<T> {
   if (getDatabaseProvider() !== "postgres") {
@@ -89,13 +75,19 @@ export async function withPgClient<T>(fn: () => Promise<T>): Promise<T> {
   if (pgClientStore.getStore()) {
     return fn();
   }
-  if (!usesHyperdrivePostgres()) {
-    return pgClientStore.run(getDirectPg(), fn);
-  }
+  // Every Postgres client is per-request, with or without Hyperdrive. The
+  // self-host image runs on workerd too, so a client cached across requests
+  // fails on its second use with "Cannot perform I/O on behalf of a different
+  // request". Hyperdrive pools the origin connections at the edge, so one
+  // connection is enough there; a direct connection has no edge pool, so allow
+  // a small per-request pool for fan-out queries.
   const sql = withQueryRetries(
     postgres(getPostgresConnectionString(), {
-      max: 1,
+      max: usesHyperdrivePostgres() ? 1 : 10,
       fetch_types: false,
+      // Bound connect stalls (seconds) so the per-query retry in
+      // withQueryRetries gets its turn within the request's lifetime instead
+      // of hanging on postgres.js's 30s default during a failover.
       connect_timeout: 10,
     }),
   );
