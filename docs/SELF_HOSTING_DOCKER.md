@@ -6,7 +6,7 @@ In Docker mode, OpenSEO uses `AUTH_MODE=local_noauth` (no auth checks, local adm
 
 The default `compose.yaml` uses the published GHCR image:
 
-- `ghcr.io/every-app/open-seo:latest`
+- `ghcr.io/flowcore-io/open-seo:latest`
 
 ## Prerequisites
 
@@ -32,8 +32,9 @@ Optional env values:
 - `PORT` (defaults to `3001`)
 - `ALLOWED_HOST` (single reverse-proxy hostname to allow in Vite preview)
 - `AUTH_MODE=local_noauth` (already set in compose)
-- `OPEN_SEO_IMAGE` (defaults to `ghcr.io/every-app/open-seo:latest`)
+- `OPEN_SEO_IMAGE` (defaults to `ghcr.io/flowcore-io/open-seo:latest`)
 - `OPENROUTER_API_KEY` (required for AI features such as SAM; see [OpenRouter](https://openrouter.ai/settings/keys))
+- `DATABASE_PROVIDER=postgres` plus `POSTGRES_DATABASE_URL` to use an external Postgres instead of the SQLite volume
 
 If you are putting Docker behind a reverse proxy or a temporary tunnel, remember that Docker self-hosting runs with app auth disabled. Only expose it behind your own auth-protected reverse proxy, tunnel, or private network, and add the public hostname before restarting:
 
@@ -54,7 +55,7 @@ To disable it, set `OPENSEO_TELEMETRY_DISABLED=1` (or `DO_NOT_TRACK=1`) in `.env
 Set `OPEN_SEO_IMAGE` in `.env` and restart:
 
 ```bash
-OPEN_SEO_IMAGE=ghcr.io/every-app/open-seo:v1.2.3
+OPEN_SEO_IMAGE=ghcr.io/flowcore-io/open-seo:v1.2.3
 docker compose up -d
 ```
 

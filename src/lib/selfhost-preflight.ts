@@ -14,7 +14,7 @@ type PreflightLevel = "ok" | "info" | "warn" | "fail";
 
 type PreflightItem = {
   // Stable identifier shared with /api/health's check map.
-  key: "auth" | "dataforseo" | "gsc" | "ai" | "runtime";
+  key: "auth" | "dataforseo" | "gsc" | "ai" | "runtime" | "database";
   name: string;
   level: PreflightLevel;
   message: string;
@@ -120,6 +120,49 @@ function checkAuthMode(env: EnvRecord, items: PreflightItem[]): void {
   });
 }
 
+function checkDatabase(env: EnvRecord, items: PreflightItem[]): void {
+  const provider = get(env, "DATABASE_PROVIDER") ?? "d1";
+
+  if (provider !== "d1" && provider !== "postgres") {
+    items.push({
+      key: "database",
+      name: "DATABASE_PROVIDER",
+      level: "fail",
+      message: `"${provider}" is not a valid DATABASE_PROVIDER. Valid values: d1, postgres.`,
+    });
+    return;
+  }
+
+  if (provider === "d1") {
+    items.push({
+      key: "database",
+      name: "DATABASE_PROVIDER",
+      level: "ok",
+      message: "d1 (SQLite volume)",
+    });
+    return;
+  }
+
+  const databaseUrl = get(env, "POSTGRES_DATABASE_URL");
+  if (!databaseUrl) {
+    items.push({
+      key: "database",
+      name: "POSTGRES_DATABASE_URL",
+      level: "fail",
+      message:
+        "DATABASE_PROVIDER=postgres requires POSTGRES_DATABASE_URL (postgres://…).",
+    });
+    return;
+  }
+
+  items.push({
+    key: "database",
+    name: "DATABASE_PROVIDER",
+    level: "ok",
+    message: "postgres via POSTGRES_DATABASE_URL",
+  });
+}
+
 function checkDataForSeo(env: EnvRecord, items: PreflightItem[]): void {
   const key = get(env, "DATAFORSEO_API_KEY");
 
@@ -219,6 +262,7 @@ function checkOptionalFeatures(env: EnvRecord, items: PreflightItem[]): void {
 export function runSelfhostChecks(env: EnvRecord): PreflightItem[] {
   const items: PreflightItem[] = [];
   checkAuthMode(env, items);
+  checkDatabase(env, items);
   checkDataForSeo(env, items);
   checkOptionalFeatures(env, items);
   return items;

@@ -5,6 +5,7 @@ import postgres from "postgres";
 import {
   getDatabaseProvider,
   getPostgresConnectionString,
+  usesHyperdrivePostgres,
 } from "@/db/provider";
 import { withQueryRetries } from "./retry";
 import * as schema from "./schema";
@@ -26,6 +27,23 @@ const pgClientStore = new AsyncLocalStorage<{
   sql: Sql;
   db: ReturnType<typeof createPgDb>;
 }>();
+
+let directSql: Sql | undefined;
+let directDb: ReturnType<typeof createPgDb> | undefined;
+
+function getDirectPg() {
+  if (!directSql || !directDb) {
+    directSql = withQueryRetries(
+      postgres(getPostgresConnectionString(), {
+        max: 10,
+        fetch_types: false,
+        connect_timeout: 10,
+      }),
+    );
+    directDb = createPgDb(directSql);
+  }
+  return { sql: directSql, db: directDb };
+}
 
 export const pgDb = new Proxy(
   {},
@@ -71,13 +89,13 @@ export async function withPgClient<T>(fn: () => Promise<T>): Promise<T> {
   if (pgClientStore.getStore()) {
     return fn();
   }
+  if (!usesHyperdrivePostgres()) {
+    return pgClientStore.run(getDirectPg(), fn);
+  }
   const sql = withQueryRetries(
     postgres(getPostgresConnectionString(), {
       max: 1,
       fetch_types: false,
-      // Bound connect stalls (seconds) so the per-query retry in
-      // withQueryRetries gets its turn within the request's lifetime instead
-      // of hanging on postgres.js's 30s default during a failover.
       connect_timeout: 10,
     }),
   );

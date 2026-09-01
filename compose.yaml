@@ -1,6 +1,6 @@
 services:
   open-seo:
-    image: ${OPEN_SEO_IMAGE:-ghcr.io/every-app/open-seo:latest}
+    image: ${OPEN_SEO_IMAGE:-ghcr.io/flowcore-io/open-seo:latest}
     restart: unless-stopped
     # Forward EVERY .env value into the container. The explicit `environment:`
     # list below still wins for the values it names — without this, any .env
@@ -16,6 +16,8 @@ services:
       - PORT=${PORT:-3001}
       - ALLOWED_HOST=${ALLOWED_HOST:-}
       - AUTH_MODE=local_noauth
+      - DATABASE_PROVIDER=${DATABASE_PROVIDER:-d1}
+      - POSTGRES_DATABASE_URL=${POSTGRES_DATABASE_URL:-}
       - OPENSEO_TELEMETRY_DISABLED=${OPENSEO_TELEMETRY_DISABLED:-}
       - DO_NOT_TRACK=${DO_NOT_TRACK:-}
       - DATAFORSEO_API_KEY=${DATAFORSEO_API_KEY}

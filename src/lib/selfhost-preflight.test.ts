@@ -85,6 +85,29 @@ describe("runSelfhostPreflight", () => {
     expect(item?.message).not.toContain("BETTER_AUTH_SECRET,");
   });
 
+  it("fails postgres mode without POSTGRES_DATABASE_URL", () => {
+    const result = runSelfhostPreflight({
+      AUTH_MODE: "local_noauth",
+      DATABASE_PROVIDER: "postgres",
+    });
+
+    expect(result.failed).toBe(true);
+    expect(itemFor(result, "POSTGRES_DATABASE_URL")?.message).toContain(
+      "POSTGRES_DATABASE_URL",
+    );
+  });
+
+  it("accepts postgres mode with POSTGRES_DATABASE_URL", () => {
+    const result = runSelfhostPreflight({
+      AUTH_MODE: "local_noauth",
+      DATABASE_PROVIDER: "postgres",
+      POSTGRES_DATABASE_URL: "postgres://openseo:openseo@db:5432/openseo",
+    });
+
+    expect(result.failed).toBe(false);
+    expect(itemFor(result, "DATABASE_PROVIDER")?.message).toContain("postgres");
+  });
+
   it("mentions ALLOWED_HOST when unset", () => {
     const result = runSelfhostPreflight({ AUTH_MODE: "local_noauth" });
 

@@ -82,9 +82,9 @@ pnpm dev
 To switch back to D1, remove that line (or set `DATABASE_PROVIDER=d1`) and
 restart.
 
-> `POSTGRES_DATABASE_URL` (step 2) is only read by Node-side tooling —
-> `drizzle-kit` and `scripts/migrate-d1-to-postgres.ts`. The app itself ignores
-> it.
+> Docker and other non-Workers runtimes (including Flowcore workloads) read
+> `POSTGRES_DATABASE_URL` directly. Cloudflare Workers still prefer the
+> `HYPERDRIVE` binding when it is present.
 
 ## 4. Verify
 
