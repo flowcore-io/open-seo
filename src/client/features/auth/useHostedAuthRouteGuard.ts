@@ -12,6 +12,16 @@ import {
   getVerifyEmailSearch,
 } from "@/lib/auth-redirect";
 
+// The authenticated shell renders in the session modes — hosted AND usable.
+// Gating it on hosted alone left every route under the shell, /oauth-consent
+// above all, blank on an AUTH_MODE=usable deployment.
+export function shouldRenderAuthenticatedShell(gate: {
+  isSessionMode: boolean;
+  canRenderAuthenticatedContent: boolean;
+}) {
+  return gate.isSessionMode && gate.canRenderAuthenticatedContent;
+}
+
 export function useHostedAuthRouteGuard() {
   const navigate = useNavigate();
   const { data: session, isPending } = useSession();
@@ -62,6 +72,7 @@ export function useHostedAuthRouteGuard() {
 
   return {
     isHostedMode,
+    isSessionMode,
     canRenderAuthenticatedContent: !isSessionMode || hasVerifiedSession,
   };
 }
