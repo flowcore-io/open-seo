@@ -89,8 +89,8 @@ vi.mock("@/lib/auth", () => ({
   getHostedBaseUrl: () => "https://app.openseo.so",
 }));
 
-vi.mock("@/middleware/ensure-user/hosted", () => ({
-  resolveHostedContext: vi.fn(),
+vi.mock("@/middleware/ensure-user/resolve", () => ({
+  resolveUserContextFromHeaders: vi.fn(),
 }));
 
 vi.mock("@/server/features/activation/mcpActivation", () => ({
@@ -332,6 +332,110 @@ describe("OpenSEO OAuth provider configuration", () => {
       state: "state-1",
       iss: "https://app.openseo.so",
     });
+  });
+
+  // The authorize endpoint used to resolve the session through the hosted
+  // Better Auth resolver only, so an AUTH_MODE=usable deployment answered
+  // "Missing Better Auth hosted configuration" with a 500 and no MCP client
+  // could ever sign in. It must use the shared, mode-aware resolver.
+  it("resolves the authorize session through the shared auth-mode resolver", async () => {
+    const { resolveUserContextFromHeaders } =
+      await import("@/middleware/ensure-user/resolve");
+    vi.mocked(resolveUserContextFromHeaders).mockResolvedValue({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailVerified: true,
+      organizationId: "org-1",
+    });
+
+    const { createOpenSeoOAuthProvider } = await import("./oauth-provider");
+    const provider = createOpenSeoOAuthProvider(() => new Response("app"));
+    await dispatch(provider, new Request("https://app.openseo.so/health"));
+
+    const response = await invokeDefaultHandler(
+      new Request("https://app.openseo.so/api/auth/oauth2/authorize?state=s1"),
+      {
+        OAUTH_PROVIDER: {
+          parseAuthRequest: () =>
+            Promise.resolve({
+              clientId: "client-1",
+              redirectUri: "https://client.example/callback",
+              scope: ["mcp"],
+              state: "s1",
+              issuer: "https://app.openseo.so",
+            }),
+        },
+      },
+    );
+
+    expect(resolveUserContextFromHeaders).toHaveBeenCalledOnce();
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("/oauth-consent");
+  });
+
+  it("reports the misconfigured auth mode instead of always naming hosted", async () => {
+    const { AppError } = await import("@/server/lib/errors");
+    const { resolveUserContextFromHeaders } =
+      await import("@/middleware/ensure-user/resolve");
+    vi.mocked(resolveUserContextFromHeaders).mockRejectedValue(
+      new AppError("AUTH_CONFIG_MISSING", "Missing Usable OIDC configuration"),
+    );
+
+    const { createOpenSeoOAuthProvider } = await import("./oauth-provider");
+    const provider = createOpenSeoOAuthProvider(() => new Response("app"));
+    await dispatch(provider, new Request("https://app.openseo.so/health"));
+
+    const response = await invokeDefaultHandler(
+      new Request("https://app.openseo.so/api/auth/oauth2/authorize"),
+      {
+        OAUTH_PROVIDER: {
+          parseAuthRequest: () =>
+            Promise.resolve({
+              clientId: "client-1",
+              redirectUri: "https://client.example/callback",
+              scope: ["mcp"],
+              issuer: "https://app.openseo.so",
+            }),
+        },
+      },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toBe(
+      "Missing Usable OIDC configuration",
+    );
+  });
+
+  it("sends an unauthenticated authorize request to sign-in", async () => {
+    const { AppError } = await import("@/server/lib/errors");
+    const { resolveUserContextFromHeaders } =
+      await import("@/middleware/ensure-user/resolve");
+    vi.mocked(resolveUserContextFromHeaders).mockRejectedValue(
+      new AppError("UNAUTHENTICATED"),
+    );
+
+    const { createOpenSeoOAuthProvider } = await import("./oauth-provider");
+    const provider = createOpenSeoOAuthProvider(() => new Response("app"));
+    await dispatch(provider, new Request("https://app.openseo.so/health"));
+
+    const response = await invokeDefaultHandler(
+      new Request("https://app.openseo.so/api/auth/oauth2/authorize?state=s1"),
+      {
+        OAUTH_PROVIDER: {
+          parseAuthRequest: () =>
+            Promise.resolve({
+              clientId: "client-1",
+              redirectUri: "https://client.example/callback",
+              scope: ["mcp"],
+              state: "s1",
+              issuer: "https://app.openseo.so",
+            }),
+        },
+      },
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("/sign-in");
   });
 
   it("does not expose unexpected authorization failures as client errors", async () => {

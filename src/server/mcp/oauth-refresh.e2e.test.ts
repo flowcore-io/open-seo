@@ -29,8 +29,8 @@ vi.mock("@/lib/auth", () => ({
   getHostedBaseUrl: () => "https://app.openseo.so",
 }));
 
-vi.mock("@/middleware/ensure-user/hosted", () => ({
-  resolveHostedContext: () =>
+vi.mock("@/middleware/ensure-user/resolve", () => ({
+  resolveUserContextFromHeaders: () =>
     Promise.resolve({
       userId: "user-1",
       userEmail: "user@example.com",
