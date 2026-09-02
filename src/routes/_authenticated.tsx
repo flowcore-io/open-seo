@@ -1,6 +1,9 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { AuthPageShell } from "@/client/features/auth/AuthPage";
-import { useHostedAuthRouteGuard } from "@/client/features/auth/useHostedAuthRouteGuard";
+import {
+  shouldRenderAuthenticatedShell,
+  useHostedAuthRouteGuard,
+} from "@/client/features/auth/useHostedAuthRouteGuard";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedShellLayout,
@@ -9,7 +12,7 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedShellLayout() {
   const authGate = useHostedAuthRouteGuard();
 
-  if (!authGate.isHostedMode || !authGate.canRenderAuthenticatedContent) {
+  if (!shouldRenderAuthenticatedShell(authGate)) {
     return null;
   }
 
