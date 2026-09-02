@@ -26,7 +26,7 @@ import {
 import { normalizeClientRegistrationRequest } from "@/server/mcp/oauth-registration";
 import { getPublicOrigin } from "@/server/mcp/public-origin";
 import { handleAuthenticatedOpenSeoMcpRequest } from "@/server/mcp/transport";
-import { resolveHostedContext } from "@/middleware/ensure-user/hosted";
+import { resolveUserContextFromHeaders } from "@/middleware/ensure-user/resolve";
 import { handleMcpApiKeyRequest } from "@/server/mcp/api-key-auth";
 
 const OAUTH_AUTHORIZE_PATH = "/api/auth/oauth2/authorize";
@@ -162,7 +162,7 @@ function csrfProtected(request: Request) {
 
 async function getAuthorizeSessionBlocker(request: Request) {
   try {
-    await resolveHostedContext(request.headers);
+    await resolveUserContextFromHeaders(request.headers);
     return null;
   } catch (error) {
     const appError = asAppError(error);
@@ -171,9 +171,9 @@ async function getAuthorizeSessionBlocker(request: Request) {
     }
 
     if (appError?.code === "AUTH_CONFIG_MISSING") {
-      return new Response("Missing Better Auth hosted configuration", {
-        status: 500,
-      });
+      // The message names the mode that is actually misconfigured — hosted
+      // Better Auth, Usable OIDC, or Cloudflare Access.
+      return new Response(appError.message, { status: 500 });
     }
 
     throw error;
@@ -182,7 +182,7 @@ async function getAuthorizeSessionBlocker(request: Request) {
 
 async function resolveContextForConsent(request: Request) {
   try {
-    return await resolveHostedContext(request.headers);
+    return await resolveUserContextFromHeaders(request.headers);
   } catch (error) {
     const appError = asAppError(error);
     if (appError?.code === "UNAUTHENTICATED") {
